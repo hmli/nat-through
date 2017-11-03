@@ -3,13 +3,12 @@ package main
 import (
 	"net"
 	"fmt"
-	"time"
 	"io"
 	"sync"
 	"flag"
 )
-// Server side: -sport: dst, -cport:  给client side开的端口
-// Client side: -sport: 上面的cport, -cport: 给用户开的端口
+// local:内网中的服务 				-sport: 要转发的服务的端口		-cport: Remote的地址(端口)
+// remote:远端服务器上的中转服务 	-sport: 上面的cport, -cport: 给用户开的端口
 func main() {
 	flagServerPort := flag.String("sport", "8000", "Server port number")
 	flagClientPort := flag.String("cport", "6999", "Client port number")
@@ -38,12 +37,12 @@ func main() {
 		go connCopy(conn, connServer, &wg)
 		wg.Wait()
 		conn.Close()
+		connServer.Close()
 	}
 }
 
 func connCopy(dst net.Conn, src net.Conn, wg *sync.WaitGroup) {
 	written, err := io.Copy(dst, src)
-	fmt.Println(written, err)
+	fmt.Println(written, err) // test only
 	wg.Done()
-	dst.Close()
 }
