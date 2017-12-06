@@ -4,7 +4,6 @@ import (
 	"net"
 	"fmt"
 	"io"
-	"sync"
 	"flag"
 	"bufio"
 	"bytes"
@@ -40,37 +39,15 @@ func listenUser(listener net.Listener, bufLocal chan []byte, bufUser chan []byte
 			fmt.Println("err:", err)
 			continue
 		}
-		//conn.SetDeadline(time.Now().Add(10 * time.Second))
-		//connService, err := net.Dial("tcp", ":8000")
-		//if err != nil {
-		//	fmt.Println(err)
-		//	continue
-		//}
-		//wg := sync.WaitGroup{}
-		//wg.Add(2)
-		//go connCopy(connService, conn, &wg)
-		//go connCopy(conn, connService, &wg)
-		//wg.Wait()
-		//connService.Close()
 		fmt.Println("conn accepted ", listener.Addr().String())
 		go func(conn net.Conn){
 			b := readFromConn(conn)
-			//b, err := ioutil.ReadAll(conn)
-			//if err != nil {
-			//	fmt.Println("err:", err)
-			//	continue
-			//	return
-			//}
-			//fmt.Println("======= user send:\n",string(b))
 			bufLocal <- b
 			receivedData := <-bufUser
 			fmt.Println("======= received from service: \n", string(receivedData))
-			fmt.Println("===-==== compare:", len(receivedData))
-			fmt.Println("last ", receivedData[len(receivedData)-10:])
 			reader := bytes.NewReader(receivedData)
 			n, err := io.Copy(conn, reader)
-			//n ,err := conn.Write(receivedData)
-			fmt.Println("-=-=-=-=-=- conn writed", n, err)
+			fmt.Println("conn writed", n, err)
 			conn.Close()
 		}(conn)
 
@@ -89,26 +66,19 @@ func listenLocal(listener net.Listener, bufUser chan []byte, bufLocal chan []byt
 			for {
 				receivedData := <-bufLocal
 				receivedData = append(receivedData, '\x03')
-				fmt.Println("++++++++++ receivedData from gateway: ", string(receivedData), receivedData[len(receivedData)-1])
 				n, err := conn.Write(receivedData)
-				fmt.Println("+++++writed: ", n, err)
+				//fmt.Println("+++++writed: ", n, err)
 				reader  := bufio.NewReader(conn)
 				data, err := reader.ReadBytes('\x03')
 				if err != nil {
 					fmt.Println(err)
 				}
-				fmt.Println("+++++++++ resp from Local service:", string(data))
 				newData := make([]byte, 0)
 				for _, b := range data {
 					if b != '\x03' {
 						newData = append(newData, b)
 					}
 				}
-				//if b[len(b)-1] == '\x03' {
-				//	b = b[:len(b)-1]
-				//} else {
-				//	// err
-				//}
 				bufUser <- newData
 			}
 
@@ -125,8 +95,6 @@ func readFromConn(conn net.Conn) (data []byte) {
 			fmt.Println("err:", err)
 			return
 		}
-
-		fmt.Println("...read... ", n)
 		data = append(data, buf[:n]...)
 
 		if n <1024  || err == io.EOF {
@@ -136,8 +104,3 @@ func readFromConn(conn net.Conn) (data []byte) {
 	return
 }
 
-func connCopy(dst net.Conn, src net.Conn, wg *sync.WaitGroup) {
-	written, err := io.Copy(dst, src)
-	fmt.Println(written, err) // test only
-	wg.Done()
-}
